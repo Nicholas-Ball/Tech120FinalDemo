@@ -1,0 +1,6 @@
+target
+.gitignore
+.git
+.idea
+test
+*.bmp
