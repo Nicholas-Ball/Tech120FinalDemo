@@ -41,7 +41,7 @@ fn simple_composite(r: Mat, g: Mat, b: Mat) -> Mat {
 }
 
 // this will highlight land in green and water in blue (helps with land and water mapping)
-pub fn ndwi(data: SatData) -> Mat {
+pub fn ndwi(data: &SatData) -> Mat {
     let green = data.get_b3();
     let nir = data.get_b8();
 
@@ -89,7 +89,7 @@ pub fn ndwi(data: SatData) -> Mat {
 
 /// This combines sentinel 2 bands to make "true color" image or what it would look like to a human
 /// if they were in space
-pub fn true_color(data: SatData) -> Mat {
+pub fn true_color(data: &SatData) -> Mat {
     simple_composite(
         data.get_b4(),
         data.get_b3(),
@@ -99,7 +99,7 @@ pub fn true_color(data: SatData) -> Mat {
 
 /// This is almost the same as true color expect that red is a near infrared frequency. This makes
 /// it easy to spot planet density
-pub fn false_color(data: SatData) -> Mat {
+pub fn false_color(data: &SatData) -> Mat {
     simple_composite(
         data.get_b8(),
         data.get_b3(),
@@ -110,7 +110,7 @@ pub fn false_color(data: SatData) -> Mat {
 /// This highlights the density of water in green. The more green an area is, the more moister they
 /// have. This will highlight dense vegetation areas and the presence of ice or rain in clouds. This
 /// will also can highlight areas lacking in water like burn areas.
-pub fn swir(data: SatData) -> Mat {
+pub fn swir(data: &SatData) -> Mat {
 
     // get bands
     let b4 = data.get_b4();

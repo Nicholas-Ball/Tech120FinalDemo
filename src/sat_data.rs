@@ -9,8 +9,13 @@ use opencv::imgcodecs::IMREAD_GRAYSCALE;
 use opencv::prelude::Mat;
 use zip::ZipArchive;
 
+#[derive(Clone)]
 pub struct SatData {
     mat_array: Vec<Mat>,
+}
+
+unsafe impl Send for SatData{
+
 }
 
 impl SatData {

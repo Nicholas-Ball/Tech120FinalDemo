@@ -1,10 +1,11 @@
 #![feature(decl_macro)]
+#![feature(async_closure)]
 
 #[macro_use]
 extern crate rocket;
 
-use std::fs;
 use std::net::IpAddr;
+use std::thread::spawn;
 use google_cloud_storage::client::{Client, ClientConfig};
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
@@ -14,9 +15,8 @@ use opencv::core::{Mat, MatTraitConst, Vector};
 use rocket::{Config, post};
 use serde::Deserialize;
 
-use crate::cdse::{authenticate, CDSESearch, download, search};
-use crate::filters::{false_color, ndwi, swir, true_color};
-use crate::sat_data::SatData;
+use crate::cdse::search::{CDSESearch, search};
+use crate::cdse::CDSE;
 
 mod sat_data;
 pub mod filters;
@@ -56,7 +56,7 @@ async fn fetch_keys_from_google() -> Keys{
 
 lazy_static! {
     static ref KEY_FILE: Keys = tokio::runtime::Runtime::new().unwrap().block_on(fetch_keys_from_google());
-    static ref TOKEN: String = authenticate(KEY_FILE.cdse.username.as_str(),KEY_FILE.cdse.password.as_str());
+    static ref CDSE_Instance: CDSE = tokio::runtime::Runtime::new().unwrap().block_on(cdse::CDSE::new(KEY_FILE.cdse.username.as_str(),KEY_FILE.cdse.password.as_str()));
 }
 
 #[post("/", data = "<input>")]
@@ -85,46 +85,44 @@ async fn api_endpoint(input: &str) -> Vec<u8> {
         // default to the latest one
         let id = search_results[0].id.clone();
 
-        // download data
-        let zipped = download(id.as_str(), TOKEN.as_str()).await;
-
-        // get sat data
-        let sat_data = SatData::new(zipped).unwrap();
-
         // check filter
-        let filter_option = data["Filter"].as_str();
+        let filter_option = data["Filter"].clone();
+
+        // if one set, do what they want
+        let image_await = spawn(move || {
+            if let Some(filter) = filter_option.as_str() {
+                tokio::runtime::Runtime::new().unwrap().block_on(CDSE_Instance.fetch(id.as_str(), filter))
+
+            } else {
+                tokio::runtime::Runtime::new().unwrap().block_on(CDSE_Instance.fetch(id.as_str(), "True Color"))
+            }
+        }).join();
+
+        let mut image = image_await.unwrap();
+
 
         // check contrast value
         let contrast_option = data["Boost Contrast"].as_f64();
 
-        // if one set, do what they want
-        let mut image = if let Some(filter) = filter_option {
-            // defualt to true color for check
-            if filter == "False Color" {
-                false_color(sat_data)
-            } else if filter == "NDWI" {
-                ndwi(sat_data)
-            } else if filter == "SWIR" {
-                swir(sat_data)
-            } else {
-                true_color(sat_data)
-            }
-        } else {
-            true_color(sat_data)
-        };
-
         if let Some(contrast) = contrast_option {
-            let mut m = Mat::default();
-            image.convert_to(&mut m, -1, contrast, 0.0).unwrap();
 
-            image = m;
+            if contrast != 1.0{
+                let conv: Vector<u8> = Vector::from(image);
+
+                let image_mat = opencv::imgcodecs::imdecode(&conv as _,opencv::imgcodecs::IMREAD_COLOR).unwrap();
+
+                let mut m = Mat::default();
+                image_mat.convert_to(&mut m, -1, contrast, 0.0).unwrap();
+
+                let mut wtf = Vector::new();
+
+                opencv::imgcodecs::imencode(".jpg",&m,&mut wtf,&Default::default()).unwrap();
+
+                image = wtf.to_vec();
+            }
         }
 
-        // convert image to png
-        let mut buffer = Vector::new();
-        opencv::imgcodecs::imencode(".jpg", &image, &mut buffer, &Default::default()).unwrap();
-
-        return buffer.to_vec();
+        return image;
     }
 
     "Error".to_string().into_bytes()
@@ -132,6 +130,9 @@ async fn api_endpoint(input: &str) -> Vec<u8> {
 
 #[launch]
 fn rocket() -> _ {
+
+    println!("{}",KEY_FILE.cdse.username);
+
     // get port number
     let port = match std::env::var("PORT") {
         Ok(port) => port,
