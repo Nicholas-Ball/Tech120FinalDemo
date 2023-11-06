@@ -2,6 +2,8 @@
 pub struct SearchResult {
     pub id: String,
     pub file_size: usize,
+    pub online: bool,
+    pub num_points: usize,
 }
 
 impl SearchResult {
@@ -9,6 +11,8 @@ impl SearchResult {
         SearchResult {
             id: json["Id"].as_str().unwrap().to_string(),
             file_size: json["ContentLength"].as_u64().unwrap() as usize,
+            online: json["Online"].as_bool().unwrap(),
+            num_points: json["GeoFootprint"]["coordinates"][0].as_array().unwrap().len(),
         }
     }
 }

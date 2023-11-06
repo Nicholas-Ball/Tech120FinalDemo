@@ -4,11 +4,13 @@
 #[macro_use]
 extern crate rocket;
 
+use std::io::Cursor;
 use std::net::IpAddr;
 use std::thread::spawn;
 use google_cloud_storage::client::{Client, ClientConfig};
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
+use image::codecs::jpeg::JpegEncoder;
 
 use lazy_static::lazy_static;
 use opencv::core::{Mat, MatTraitConst, Vector};
@@ -59,6 +61,33 @@ lazy_static! {
     static ref CDSE_Instance: CDSE = tokio::runtime::Runtime::new().unwrap().block_on(cdse::CDSE::new(KEY_FILE.cdse.username.as_str(),KEY_FILE.cdse.password.as_str()));
 }
 
+pub fn compress_till_32MB(image:&[u8])->Vec<u8>{
+    let img = image::load_from_memory(image).unwrap();
+    let mut quality = 95;
+    let max_size: u64 = 32 * 1024 * 1024; // 32MB
+
+    loop {
+        let mut buffer = Cursor::new(Vec::new());
+
+        // Encode the image to JPEG with the current quality setting
+        let mut encoder = JpegEncoder::new_with_quality(&mut buffer, quality);
+        encoder.encode(img.as_rgb8().unwrap(), img.width(), img.height(), image::ColorType::Rgb8).unwrap();
+
+        // Get the resulting JPEG data
+        let data = buffer.into_inner();
+
+        if data.len() as u64 <= max_size {
+            // write the compressed image to the output
+            return data
+        } else if quality > 10 { // reduce the quality by 10 if the size is still too big
+            quality -= 10;
+        } else { // if quality less than 10 then break the loop
+            println!("Could not compress image to desired size");
+            return data
+        }
+    }
+}
+
 #[post("/", data = "<input>")]
 async fn api_endpoint(input: &str) -> Vec<u8> {
     // convert request to json
@@ -83,7 +112,15 @@ async fn api_endpoint(input: &str) -> Vec<u8> {
         let search_results = search(s);
 
         // default to the latest one
-        let id = search_results[0].id.clone();
+        let mut id = search_results[0].id.clone();
+
+        // // try to find whole image data
+        // for x in search_results{
+        //     if x.online && x.num_points > 5 && x.file_size > 600_000_000{
+        //         id = x.id;
+        //         break
+        //     }
+        // }
 
         // check filter
         let filter_option = data["Filter"].clone();
@@ -99,7 +136,6 @@ async fn api_endpoint(input: &str) -> Vec<u8> {
         }).join();
 
         let mut image = image_await.unwrap();
-
 
         // check contrast value
         let contrast_option = data["Boost Contrast"].as_f64();
@@ -122,7 +158,7 @@ async fn api_endpoint(input: &str) -> Vec<u8> {
             }
         }
 
-        return image;
+        return compress_till_32MB(image.as_slice())
     }
 
     "Error".to_string().into_bytes()

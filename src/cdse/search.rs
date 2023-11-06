@@ -70,5 +70,7 @@ pub fn search(cdsesearch: CDSESearch) -> Vec<SearchResult> {
 
     let to_return: serde_json::Value = serde_json::from_str(buffer.as_str()).unwrap();
 
+    dbg!(&to_return);
+
     parse_search_result(to_return.get("value").unwrap().clone())
 }
