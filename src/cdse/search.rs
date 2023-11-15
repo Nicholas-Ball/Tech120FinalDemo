@@ -1,6 +1,6 @@
 use std::io::Read;
-use crate::cdse::search_result::{parse_search_result, SearchResult};
 
+use crate::cdse::search_result::{parse_search_result, SearchResult};
 
 #[derive(Debug)]
 pub struct CDSESearch {
@@ -69,8 +69,6 @@ pub fn search(cdsesearch: CDSESearch) -> Vec<SearchResult> {
     res.read_to_string(&mut buffer).unwrap();
 
     let to_return: serde_json::Value = serde_json::from_str(buffer.as_str()).unwrap();
-
-    dbg!(&to_return);
 
     parse_search_result(to_return.get("value").unwrap().clone())
 }

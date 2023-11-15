@@ -1,12 +1,14 @@
 use std::thread;
+
 use bytes::Bytes;
 use google_cloud_storage::client::ClientConfig;
 use google_cloud_storage::http::objects::download::Range;
 use google_cloud_storage::http::objects::get::GetObjectRequest;
 use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
-use opencv::core::{Mat, Vector};
+use opencv::core::Vector;
 use reqwest::blocking::Client;
 use tokio::runtime::Runtime;
+
 use crate::filters::{false_color, ndwi, swir, true_color};
 use crate::sat_data::SatData;
 
@@ -15,7 +17,7 @@ mod download;
 pub mod search;
 mod authenticate;
 
-async fn upload_image_to_bucket(client: &google_cloud_storage::client::Client, id: &str,filter: &str, sat_data: &SatData){
+async fn upload_image_to_bucket(client: &google_cloud_storage::client::Client, id: &str, filter: &str, sat_data: &SatData) {
 
     // default to true color for check
     let image = if filter == "False Color" {
@@ -31,17 +33,17 @@ async fn upload_image_to_bucket(client: &google_cloud_storage::client::Client, i
     // prepare image
     let dir = id.to_owned() + "/" + filter + ".jpg";
     let mut image_bytes = Vector::new();
-    opencv::imgcodecs::imencode(".jpg",&image, &mut image_bytes, &Default::default()).unwrap();
+    opencv::imgcodecs::imencode(".jpg", &image, &mut image_bytes, &Default::default()).unwrap();
 
     let upload_type = UploadType::Simple(Media::new(dir));
 
     client.upload_object(&UploadObjectRequest {
         bucket: "satellite-storage".to_string(),
         ..Default::default()
-    },  Bytes::from(image_bytes.to_vec()), &upload_type).await.unwrap();
+    }, Bytes::from(image_bytes.to_vec()), &upload_type).await.unwrap();
 }
 
-pub struct CDSE{
+pub struct CDSE {
     cdse_client: Client,
     google_client: google_cloud_storage::client::Client,
     token: String,
@@ -63,7 +65,7 @@ impl CDSE {
         CDSE {
             cdse_client,
             google_client,
-            token
+            token,
         }
     }
 
@@ -83,7 +85,6 @@ impl CDSE {
 
     /// Return a image from an ID with a given filter and contrast
     pub async fn fetch(&self, id: &str, filter: &str) -> Vec<u8> {
-
         let dir = id.to_owned() + "/" + filter + ".jpg";
 
         // check if filter exists

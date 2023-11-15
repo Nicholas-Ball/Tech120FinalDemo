@@ -14,9 +14,7 @@ pub struct SatData {
     mat_array: Vec<Mat>,
 }
 
-unsafe impl Send for SatData{
-
-}
+unsafe impl Send for SatData {}
 
 impl SatData {
     /// Create a new SatData instance from the unzipped file location

@@ -1,4 +1,5 @@
 use std::io::Cursor;
+
 use bytes::Bytes;
 use google_cloud_storage::client::{Client, ClientConfig};
 use google_cloud_storage::http::objects::download::Range;
@@ -16,7 +17,7 @@ fn unzip_in_memory(data: Bytes) -> ZipArchive<Cursor<Bytes>> {
 }
 
 /// This will check if a given file is already stored in the google bucket
-async fn google_bucket_check(client: &Client,filename: &str) -> Option<ZipArchive<Cursor<Bytes>>> {
+async fn google_bucket_check(client: &Client, filename: &str) -> Option<ZipArchive<Cursor<Bytes>>> {
     // check for file
     let data = client.download_object(&GetObjectRequest {
         bucket: "satellite-storage".to_string(),
@@ -45,13 +46,13 @@ async fn google_bucket_upload_zip(filename: &str, file: &Bytes) {
 }
 
 /// This will download data and unzip it from ESA. This will be returned as a zipped object
-pub async fn download(google_client: &Client,id: &str, token: &str) -> ZipArchive<Cursor<Bytes>> {
+pub async fn download(google_client: &Client, id: &str, token: &str) -> ZipArchive<Cursor<Bytes>> {
     let filename = format!("{id}.zip");
 
-    if let Some(out) = google_bucket_check(google_client,filename.as_str()).await {
+    if let Some(out) = google_bucket_check(google_client, filename.as_str()).await {
         return out;
     }
-    
+
     // create client data to
     let client = reqwest::blocking::Client::builder().redirect(Policy::none()).build().unwrap();
     let mut url = format!("https://catalogue.dataspace.copernicus.eu/odata/v1/Products({})/$value", id);

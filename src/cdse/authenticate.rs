@@ -1,9 +1,10 @@
 use std::io::Read;
+
 use reqwest::header;
 use serde_json::json;
 
 /// This will pass username and password to cdse and return a api access token
-pub fn authenticate(client: &reqwest::blocking::Client,username: &str, password: &str) -> String {
+pub fn authenticate(client: &reqwest::blocking::Client, username: &str, password: &str) -> String {
     let request_data = json!({
         "client_id": "cdse-public",
         "username": username,
