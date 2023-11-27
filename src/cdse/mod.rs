@@ -8,6 +8,7 @@ use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, Up
 use opencv::core::Vector;
 use reqwest::blocking::Client;
 use tokio::runtime::Runtime;
+use crate::cdse::authenticate::refresh;
 
 use crate::filters::{false_color, ndwi, swir, true_color};
 use crate::sat_data::SatData;
@@ -21,13 +22,13 @@ async fn upload_image_to_bucket(client: &google_cloud_storage::client::Client, i
 
     // default to true color for check
     let image = if filter == "False Color" {
-        false_color(&sat_data)
+        false_color(sat_data)
     } else if filter == "NDWI" {
-        ndwi(&sat_data)
+        ndwi(sat_data)
     } else if filter == "SWIR" {
-        swir(&sat_data)
+        swir(sat_data)
     } else {
-        true_color(&sat_data)
+        true_color(sat_data)
     };
 
     // prepare image
@@ -46,7 +47,8 @@ async fn upload_image_to_bucket(client: &google_cloud_storage::client::Client, i
 pub struct CDSE {
     cdse_client: Client,
     google_client: google_cloud_storage::client::Client,
-    token: String,
+    username: String,
+    password: String,
 }
 
 impl CDSE {
@@ -59,13 +61,11 @@ impl CDSE {
         let config = ClientConfig::default().with_auth().await.unwrap();
         let google_client = google_cloud_storage::client::Client::new(config);
 
-        // get access token
-        let token = authenticate::authenticate(&cdse_client, username, password);
-
         CDSE {
             cdse_client,
             google_client,
-            token,
+            username: username.to_string(),
+            password: password.to_string()
         }
     }
 
@@ -95,7 +95,7 @@ impl CDSE {
             image.to_vec()
         } else {
             // check if zip exits. if not, download
-            let zip = download::download(&self.google_client, id, self.token.as_str()).await;
+            let zip = download::download(&self.google_client, id, authenticate::authenticate(&self.cdse_client,self.username.as_str(),self.password.as_str()).as_str()).await;
 
             // load to sat data
             let sat_data = SatData::new(zip).unwrap();

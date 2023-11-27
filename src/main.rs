@@ -145,15 +145,21 @@ fn handle_image_return_v2(id: &str, filter: &str, contrast:f32) -> Vec<u8> {
     // check contrast value
     let conv: Vector<u8> = Vector::from(image);
 
-    let image_mat = opencv::imgcodecs::imdecode(&conv as _, opencv::imgcodecs::IMREAD_COLOR).unwrap();
+    let mut image_mat = opencv::imgcodecs::imdecode(&conv as _, opencv::imgcodecs::IMREAD_COLOR).unwrap();
 
-    let mut m = Mat::default();
     dbg!(contrast as f64);
-    image_mat.convert_to(&mut m, -1, contrast as f64, 0.0).unwrap();
+
+    if contrast != 1.0 {
+        let mut m = Mat::default();
+        image_mat.convert_to(&mut m, opencv::core::CV_8UC3, contrast as f64, 0.0).unwrap();
+        image_mat = m;
+
+    }
+
 
     let mut wtf = Vector::new();
 
-    opencv::imgcodecs::imencode(".jpg", &m, &mut wtf, &Default::default()).unwrap();
+    opencv::imgcodecs::imencode(".jpg", &image_mat, &mut wtf, &Default::default()).unwrap();
 
     image = wtf.to_vec();
 

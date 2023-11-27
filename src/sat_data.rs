@@ -39,7 +39,7 @@ impl SatData {
 
                     spawn(move || {
                         let mat_data = Mat::from_slice(&d).unwrap();
-                        tx.send(opencv::imgcodecs::imdecode(&mat_data, IMREAD_GRAYSCALE).unwrap()).unwrap();
+                        tx.send(opencv::imgcodecs::imdecode(&mat_data,IMREAD_GRAYSCALE)).unwrap();
                     });
                 }
             }
@@ -47,7 +47,7 @@ impl SatData {
 
         for x in thread_array {
             mat_array.push(
-                x.recv().unwrap()
+                x.recv().unwrap().unwrap()
             )
         }
 

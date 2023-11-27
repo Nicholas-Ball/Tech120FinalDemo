@@ -1,4 +1,4 @@
-use opencv::core::no_array;
+use opencv::core::{no_array, Vector};
 use opencv::prelude::{Mat, MatTrait, MatTraitConst};
 use opencv::types::VectorOfMat;
 
@@ -22,13 +22,13 @@ fn down_sample_u8(m: Mat, ratio: usize) -> Mat {
 
 /// Basic combination of colors in red, green, and blue for the respective bands
 fn simple_composite(r: Mat, g: Mat, b: Mat) -> Mat {
-    // Create a new channel
-    let mut channels = VectorOfMat::with_capacity(3);
+    println!("r depth: {:?}", r.depth());
+    println!("g depth: {:?}", g.depth());
+    println!("b depth: {:?}", b.depth());
 
-    // add channels for color
-    channels.push(b); // blue
-    channels.push(g); // green
-    channels.push(r); // red
+    // Create a new channel
+    let slice = [b, g, r];
+    let channels:Vector<Mat> = Vector::from(slice.to_vec());
 
     // make a new image
     let mut new_image = Mat::default();

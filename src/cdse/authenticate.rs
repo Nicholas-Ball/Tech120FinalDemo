@@ -27,3 +27,18 @@ pub fn authenticate(client: &reqwest::blocking::Client, username: &str, password
 
     response["access_token"].as_str().unwrap().to_string()
 }
+
+pub fn refresh(client: &reqwest::blocking::Client, token: &str){
+    let request_data = json!({
+        "client_id": "cdse-public",
+        "refresh_token": token,
+        "grant_type": "refresh_token",
+    });
+
+    client
+        .post("https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token")
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .form(&request_data)
+        .send()
+        .unwrap();
+}

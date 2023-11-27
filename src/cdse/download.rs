@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use anyhow::Error;
 
 use bytes::Bytes;
 use google_cloud_storage::client::{Client, ClientConfig};
@@ -8,12 +9,22 @@ use google_cloud_storage::http::objects::upload::{Media, UploadObjectRequest, Up
 use reqwest::redirect::Policy;
 use zip::ZipArchive;
 
-fn unzip_in_memory(data: Bytes) -> ZipArchive<Cursor<Bytes>> {
+fn unzip_in_memory(data: Bytes) -> anyhow::Result<ZipArchive<Cursor<Bytes>>> {
+    let data_clone = data.clone();
     let mut reader = Cursor::new(data);
 
     reader.set_position(0);
 
-    ZipArchive::new(reader).unwrap()
+    let check = ZipArchive::new(reader);
+
+    if let Ok(good) = check{
+        Ok(good)
+    }else {
+
+        dbg!(data_clone);
+
+        Err(Error::msg("Failed to load zip"))
+    }
 }
 
 /// This will check if a given file is already stored in the google bucket
@@ -26,7 +37,7 @@ async fn google_bucket_check(client: &Client, filename: &str) -> Option<ZipArchi
     }, &Range::default()).await;
 
     if let Ok(file) = data {
-        Some(unzip_in_memory(Bytes::from(file)))
+        Some(unzip_in_memory(Bytes::from(file)).unwrap())
     } else {
         None
     }
@@ -49,9 +60,13 @@ async fn google_bucket_upload_zip(filename: &str, file: &Bytes) {
 pub async fn download(google_client: &Client, id: &str, token: &str) -> ZipArchive<Cursor<Bytes>> {
     let filename = format!("{id}.zip");
 
+    dbg!("Checking database...");
+
     if let Some(out) = google_bucket_check(google_client, filename.as_str()).await {
         return out;
     }
+
+    dbg!("Downloading from ESA...");
 
     // create client data to
     let client = reqwest::blocking::Client::builder().redirect(Policy::none()).build().unwrap();
@@ -88,8 +103,12 @@ pub async fn download(google_client: &Client, id: &str, token: &str) -> ZipArchi
 
     let data = resp.bytes().unwrap();
 
+    dbg!("Uploading ZIP to database...");
+
     // upload copy
     google_bucket_upload_zip(filename.as_str(), &data).await;
 
-    unzip_in_memory(data)
+    dbg!("Returning unzipped files...");
+
+    unzip_in_memory(data).unwrap()
 }
